@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  avatar    String?
+  bio       String?  @db.VarChar(160)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+  initiatedCalls   CallLog[]  @relation("CallerLogs")
+  receivedCalls    CallLog[]  @relation("ReceiverLogs")
+
+  @@index([email])
+}
+
+model Message {
+  id           String      @id @default(cuid())
+  senderId     String
+  receiverId   String
+  senderName   String
+  senderAvatar String?
+  messageType  MessageType @default(TEXT)
+  content      String      @default("") @db.VarChar(2000)
+  imageUrl     String?
+  status       ReadStatus  @default(SENT)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  sender   User @relation("SentMessages",     fields: [senderId],   references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, senderId, status])
+}
+
+model CallLog {
+  id         String     @id @default(cuid())
+  callerId   String
+  receiverId String
+  callType   CallType   @default(VIDEO)
+  status     CallStatus @default(MISSED)
+  startedAt  DateTime?
+  endedAt    DateTime?
+  duration   Int?
+  createdAt  DateTime   @default(now())
+
+  caller   User @relation("CallerLogs",   fields: [callerId],   references: [id], onDelete: Cascade)
+  receiver User @relation("ReceiverLogs", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([callerId, receiverId, createdAt])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+}
+
+enum ReadStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum CallType {
+  VIDEO
+  VOICE
+}
+
+enum CallStatus {
+  MISSED
+  DECLINED
+  ANSWERED
+}
